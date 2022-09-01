@@ -1,6 +1,6 @@
 # VueSpaWithDotNetApiTemplate
 
-Powerful template application using dotnet 6 WebAPI as a backend 
+Powerful application template using dotnet 6 WebAPI as a backend 
 and VueJS 3 as an client SPA. 
 
 ## Backend
