@@ -1,0 +1,22 @@
+{
+	"compilerOptions": {
+		//"rootDir": "src/",
+		//"outDir": "src/",
+		//"allowJs": true,
+		"declaration": true,
+		"forceConsistentCasingInFileNames": true,
+		"target": "ESNext",
+		"strict": true,
+		"skipLibCheck": true,
+		"moduleResolution": "Node"
+	},
+	"include": [
+		"src/lib/*.ts"
+	],
+	"exclude": [
+		"node_modules",
+		"./node_modules",
+		"./node_modules/*",
+		"./node_modules/@types/node/index.d.ts"
+	]
+}

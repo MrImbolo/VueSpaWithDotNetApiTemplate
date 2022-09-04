@@ -8,7 +8,7 @@ import { RetryPolicy, BasicExecutionPolicy } from './lib/SecKy'
 
 // Global options for secky instance creation. For detailed info see ../lib/SecKy.ts
 const secKyOptions = {
-  baseUrl: process.env == 'Production' ? 'https://someurl.com/' : 'https://localhost:44316',
+  baseUrl: process.env.NODE_ENV !== 'development' ? 'https://someurl.com/' : 'https://localhost:44316',
   authToken: '',
   policy: RetryPolicy.createBasic(BasicExecutionPolicy.RetryOnce),
   reauthAction: () => store.dispatch('user/refresh')

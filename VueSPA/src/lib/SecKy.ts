@@ -1,14 +1,23 @@
 ﻿import ky, { KyResponse, Options, ResponsePromise } from 'ky';
+// @ts-ignore
 import { HttpStatusCode } from './HttpStatusCode'
 
 export interface SecKyOptions {
   authToken: string | undefined;
   baseUrl: string | undefined;
   policy: RetryPolicy | undefined;
-  reauthAction: Function | undefined;
+  reauthAction: () => Promise<RefreshTokenResult> | undefined;
 }
 
 export type ResultType = RequestError | RequestResult;
+
+interface RefreshTokenResult {
+  success: boolean,
+  token?: string,
+  refreshToken?: string,
+  tokenExpires?: Date,
+  refreshTokenExpires?: Date,
+}
 
 class RequestError {
   success: boolean = false;
@@ -89,32 +98,14 @@ export class SecKy {
   private _refreshToken: string | undefined;
   private _baseUrl: string | undefined;
   private _policy: RetryPolicy;
-  private _reauthAction: Function | undefined;
-  
-  set token(token: string) {
-    this._authToken = token;
-  }
-
-  set refreshToken(token: string) {
-    this._refreshToken = token;
-  }
+  private _reauthAction: () => Promise<RefreshTokenResult> | undefined;
 
   set retryPolicy(retryPolicy: RetryPolicy) {
     if (retryPolicy == null) throw new Error('Argument "retryPolicy" cannot be null');
     this._policy = retryPolicy;
   }
 
-  private getAuthHeader(): object {
-    if (this.token) {
-      return {
-        Authorization: `Bearer ${this.token}`
-      }
-    }
-
-    return {};
-  }
-
-  private getRequestOptions(): Options {
+  private getRequestOptions(withToken: boolean | undefined): Options {
     const options = {
       // { json: object, headers: this.getAuthHeader(),  }
       timeout: this._policy.timeout,
@@ -128,7 +119,7 @@ export class SecKy {
     if (this._baseUrl)
       options.prefixUrl = this._baseUrl;
 
-    if (this._authToken)
+    if (this._authToken && withToken)
       options.headers.Authorization = `Bearer ${this._authToken}`;
 
     if (this._policy.shouldRetry) {
@@ -136,10 +127,6 @@ export class SecKy {
     }
 
     return options;
-  }
-
-  private concatWithBase(url: string): string {
-    return (this._baseUrl || '') + '/' + url;
   }
 
   private async getResultOrError(response: KyResponse): Promise<ResultType> {
@@ -179,11 +166,20 @@ export class SecKy {
       return new RequestError(response.status, response.statusText, val + '\n' + err);
     }
 
-    return new RequestResult(response.ok && !err, response.status, val);
+    let successTrueOrEmpty = false;
+    if (!(val instanceof Object)) {
+      successTrueOrEmpty = true;
+    }
+    else {
+      var v = val as { success: boolean };
+      successTrueOrEmpty = !v || v.success;
+    }
+
+    return new RequestResult(response.ok && !err && successTrueOrEmpty, response.status, val);
   }
 
   private async execWithRetryOn401(
-    request: (string, Options) => ResponsePromise,
+    request: (url: string, options: Options) => ResponsePromise,
     url: string,
     options: Options)
       : Promise<KyResponse> {
@@ -191,6 +187,9 @@ export class SecKy {
     let response = await request(url, options);
 
     if (!response.ok && response.status == HttpStatusCode.UNAUTHORIZED) {
+      if (this._reauthAction == undefined) {
+        throw new Error("[Argument not passed] Reauthentication action is not set up. ");
+      }
       await this._reauthAction();
       response = await request(url, options);
     }
@@ -202,41 +201,43 @@ export class SecKy {
     if (options) {
       this._authToken = options.authToken || undefined;
       this._baseUrl = options.authToken || undefined;
+      this._reauthAction = options.reauthAction;
     }
+    this._reauthAction = undefined!;
     this._policy = options && options.policy || RetryPolicy.createBasic(BasicExecutionPolicy.NoRetry);
   }
 
 
-  async get(url: string, object: object | undefined): Promise<ResultType> {
-    const options = this.getRequestOptions();
-    var response = await this.execWithRetryOn401(ky.get, this.concatWithBase(url), { ...options, json: object });
+  async get(url: string, object: object | undefined, withToken: boolean | undefined): Promise<ResultType> {
+    const options = this.getRequestOptions(withToken);
+    var response = await this.execWithRetryOn401(ky.get, url, { ...options, json: object });
 
     var result = this.getResultOrError(response);
 
     return result;
   }
 
-  async post(url: string, object: object | undefined): Promise<ResultType> {
-    const options = this.getRequestOptions();
-    var response = await this.execWithRetryOn401(ky.post, this.concatWithBase(url), { ...options, json: object });
+  async post(url: string, object: object | undefined, withToken: boolean | undefined): Promise<ResultType> {
+    const options = this.getRequestOptions(withToken);
+    var response = await this.execWithRetryOn401(ky.post, url, { ...options, json: object });
 
     var result = this.getResultOrError(response);
 
     return result;
   }
 
-  async put(url: string, object: object | undefined): Promise<ResultType> {
-    const options = this.getRequestOptions();
-    var response = await this.execWithRetryOn401(ky.put, this.concatWithBase(url), { ...options, json: object });
+  async put(url: string, object: object | undefined, withToken: boolean | undefined): Promise<ResultType> {
+    const options = this.getRequestOptions(withToken);
+    var response = await this.execWithRetryOn401(ky.put, url, { ...options, json: object });
 
     var result = this.getResultOrError(response);
 
     return result;
   }
 
-  async delete(url: string, object: object | undefined): Promise<ResultType> {
-    const options = this.getRequestOptions();
-    var response = await this.execWithRetryOn401(ky.delete, this.concatWithBase(url), { ...options, json: object });
+  async delete(url: string, object: object | undefined, withToken: boolean | undefined): Promise<ResultType> {
+    const options = this.getRequestOptions(withToken);
+    var response = await this.execWithRetryOn401(ky.delete, url, { ...options, json: object });
 
     var result = this.getResultOrError(response);
 

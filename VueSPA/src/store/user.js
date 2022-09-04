@@ -58,18 +58,24 @@ export default {
 
       if (!response.success) {
         debug.error(`Error refreshing token. StatusCode: ${response.status}, Message: ${response.error}`);
-        return;
+        commit('reset');
+        return {};
       }
 
-      SecKyInstance.token = response.payload.token;
-      SecKyInstance.refreshToken = response.payload.refreshToken;
-
       commit('setUserInfo', response.payload);
+
+      return {
+        success: response.payload.success,
+        token: response.payload.token,
+        tokenExpires: response.payload.tokenExpires,
+        refreshToken: response.payload.refreshToken,
+        refreshTokenExpires: response.payload.refreshTokenExpires
+      }
     }
   },
   mutations: {
     reset(state) {
-      state = createDefaultState();
+      Object.assign(state, createDefaultState());
     },
     setUserInfo(state, payload) {
       state.data.isLoggedIn = true;
