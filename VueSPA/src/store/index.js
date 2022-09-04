@@ -1,11 +1,14 @@
 ﻿import { createStore } from 'vuex'
 import user from './user'
+import menu from './menu'
 
-export const store = createStore({
+export default createStore({
     state: () => ({
 
     }),
     modules: {
-        user
-    }
+      user,
+      menu
+    },
+    strict: false
 })

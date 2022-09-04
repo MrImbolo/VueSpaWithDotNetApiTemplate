@@ -21,7 +21,8 @@ function parseClaims(token) {
 }
 
 export default {
-  state: createDefaultState(), 
+  namespaced: true,
+  state: createDefaultState, 
   getters: {
     token(state) {
       return state.token;
